@@ -99,7 +99,6 @@ module Authorization
       result
     end
 
-    protected
     def filter_access_filter # :nodoc:
       permissions = self.class.all_filter_access_permissions
       all_permissions = permissions.select {|p| p.actions.include?(:all)}
@@ -134,6 +133,8 @@ module Authorization
         end
       end
     end
+
+    protected
 
     def load_controller_object (context_without_namespace = nil, model = nil) # :nodoc:
       instance_var = :"@#{context_without_namespace.to_s.singularize}"
