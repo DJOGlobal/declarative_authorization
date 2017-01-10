@@ -25,6 +25,36 @@ module Authorization
       @@failed_auto_loading_is_not_found = new_value
     end
 
+    # Returns the Authorization::Engine for the current controller.
+    def authorization_engine
+      @authorization_engine ||= Authorization::Engine.instance
+    end
+
+    # If the current user meets the given privilege, permitted_to? returns true
+    # and yields to the optional block.  The attribute checks that are defined
+    # in the authorization rules are only evaluated if an object is given
+    # for context.
+    #
+    # See examples for Authorization::AuthorizationHelper #permitted_to?
+    #
+    # If no object or context is specified, the controller_name is used as
+    # context.
+    #
+    def permitted_to? (privilege, object_or_sym = nil, options = {})
+      if authorization_engine.permit!(privilege, options_for_permit(object_or_sym, options, false))
+        yield if block_given?
+        true
+      else
+        false
+      end
+    end
+
+    # Works similar to the permitted_to? method, but
+    # throws the authorization exceptions, just like Engine#permit!
+    def permitted_to! (privilege, object_or_sym = nil, options = {})
+      authorization_engine.permit!(privilege, options_for_permit(object_or_sym, options, true))
+    end
+
     # While permitted_to? is used for authorization, in some cases
     # content should only be shown to some users without being concerned
     # with authorization.  E.g. to only show the most relevant menu options
@@ -640,36 +670,6 @@ module Authorization
     end
 
     private
-
-    # Returns the Authorization::Engine for the current controller.
-    def authorization_engine
-      @authorization_engine ||= Authorization::Engine.instance
-    end
-
-    # If the current user meets the given privilege, permitted_to? returns true
-    # and yields to the optional block.  The attribute checks that are defined
-    # in the authorization rules are only evaluated if an object is given
-    # for context.
-    #
-    # See examples for Authorization::AuthorizationHelper #permitted_to?
-    #
-    # If no object or context is specified, the controller_name is used as
-    # context.
-    #
-    def permitted_to? (privilege, object_or_sym = nil, options = {})
-      if authorization_engine.permit!(privilege, options_for_permit(object_or_sym, options, false))
-        yield if block_given?
-        true
-      else
-        false
-      end
-    end
-
-    # Works similar to the permitted_to? method, but
-    # throws the authorization exceptions, just like Engine#permit!
-    def permitted_to! (privilege, object_or_sym = nil, options = {})
-      authorization_engine.permit!(privilege, options_for_permit(object_or_sym, options, true))
-    end
 
     def load_object(contr)
       if @load_object_method and @load_object_method.is_a?(Symbol)
