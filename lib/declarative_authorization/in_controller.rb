@@ -99,6 +99,8 @@ module Authorization
       result
     end
 
+    protected
+
     def filter_access_filter # :nodoc:
       permissions = self.class.all_filter_access_permissions
       all_permissions = permissions.select {|p| p.actions.include?(:all)}
@@ -133,8 +135,6 @@ module Authorization
         end
       end
     end
-
-    protected
 
     def load_controller_object (context_without_namespace = nil, model = nil) # :nodoc:
       instance_var = :"@#{context_without_namespace.to_s.singularize}"
@@ -294,6 +294,41 @@ module Authorization
       #     filter_access_to :show, :attribute_check => true,
       #                      :load_method => lambda { User.find(params[:id]) }
       #
+
+      def filter_access_filter # :nodoc:
+        permissions = self.class.all_filter_access_permissions
+        all_permissions = permissions.select {|p| p.actions.include?(:all)}
+        matching_permissions = permissions.select {|p| p.matches?(action_name)}
+        allowed = false
+        auth_exception = nil
+        begin
+          allowed = if !matching_permissions.empty?
+                      matching_permissions.all? {|perm| perm.permit!(self)}
+                    elsif !all_permissions.empty?
+                      all_permissions.all? {|perm| perm.permit!(self)}
+                    else
+                      !DEFAULT_DENY
+                    end
+        rescue NotAuthorized => e
+          auth_exception = e
+        end
+
+        unless allowed
+          if all_permissions.empty? and matching_permissions.empty?
+            logger.warn "Permission denied: No matching filter access " +
+              "rule found for #{self.class.controller_name}.#{action_name}"
+          elsif auth_exception
+            logger.info "Permission denied: #{auth_exception}"
+          end
+          if respond_to?(:permission_denied, true)
+            # permission_denied needs to render or redirect
+            send(:permission_denied)
+          else
+            send(:render, :text => "You are not allowed to access this action.",
+              :status => :forbidden)
+          end
+        end
+      end
 
       def filter_access_to (*args, &filter_block)
         options = args.last.is_a?(Hash) ? args.pop : {}
