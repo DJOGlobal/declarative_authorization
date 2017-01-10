@@ -346,7 +346,7 @@ module Authorization
 
         # prevent setting filter_access_filter multiple times
         skip_before_action :filter_access_filter
-        before_filter :filter_access_filter
+        before_action :filter_access_filter
 
         filter_access_permissions.each do |perm|
           perm.remove_actions(actions)
