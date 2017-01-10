@@ -630,7 +630,6 @@ module Authorization
         ((prefixes + [controller_name]) * '_').to_sym
       end
 
-      protected
       def filter_access_permissions # :nodoc:
         unless filter_access_permissions?
           ancestors[1..-1].reverse.each do |mod|
