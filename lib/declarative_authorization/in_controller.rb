@@ -3,13 +3,15 @@ require File.dirname(__FILE__) + '/authorization.rb'
 
 module Authorization
   module AuthorizationInController
-
+  
     def self.included(base) # :nodoc:
       base.extend(ClassMethods)
+      base.hide_action :authorization_engine, :permitted_to?,
+        :permitted_to!
     end
-
+    
     DEFAULT_DENY = false
-
+    
     # If attribute_check is set for filter_access_to, decl_auth_context will try to
     # load the appropriate object from the current controller's model with
     # the id from params[:id].  If that fails, a 404 Not Found is often the
@@ -29,12 +31,12 @@ module Authorization
     def authorization_engine
       @authorization_engine ||= Authorization::Engine.instance
     end
-
+    
     # If the current user meets the given privilege, permitted_to? returns true
     # and yields to the optional block.  The attribute checks that are defined
     # in the authorization rules are only evaluated if an object is given
     # for context.
-    #
+    # 
     # See examples for Authorization::AuthorizationHelper #permitted_to?
     #
     # If no object or context is specified, the controller_name is used as
@@ -48,7 +50,7 @@ module Authorization
         false
       end
     end
-
+    
     # Works similar to the permitted_to? method, but
     # throws the authorization exceptions, just like Engine#permit!
     def permitted_to! (privilege, object_or_sym = nil, options = {})
@@ -57,7 +59,7 @@ module Authorization
 
     # While permitted_to? is used for authorization, in some cases
     # content should only be shown to some users without being concerned
-    # with authorization.  E.g. to only show the most relevant menu options
+    # with authorization.  E.g. to only show the most relevant menu options 
     # to a certain group of users.  That is what has_role? should be used for.
     def has_role? (*roles, &block)
       user_roles = authorization_engine.roles_for(current_user)
@@ -67,8 +69,8 @@ module Authorization
       yield if result and block_given?
       result
     end
-
-    # Intended to be used where you want to allow users with any single listed role to view
+    
+    # Intended to be used where you want to allow users with any single listed role to view 
     # the content in question
     def has_any_role?(*roles,&block)
       user_roles = authorization_engine.roles_for(current_user)
@@ -78,7 +80,7 @@ module Authorization
       yield if result and block_given?
       result
     end
-
+    
     # As has_role? except checks all roles included in the role hierarchy
     def has_role_with_hierarchy?(*roles, &block)
       user_roles = authorization_engine.roles_with_hierarchy_for(current_user)
@@ -88,7 +90,7 @@ module Authorization
       yield if result and block_given?
       result
     end
-
+    
     # As has_any_role? except checks all roles included in the role hierarchy
     def has_any_role_with_hierarchy?(*roles, &block)
       user_roles = authorization_engine.roles_with_hierarchy_for(current_user)
@@ -98,9 +100,8 @@ module Authorization
       yield if result and block_given?
       result
     end
-
+    
     protected
-
     def filter_access_filter # :nodoc:
       permissions = self.class.all_filter_access_permissions
       all_permissions = permissions.select {|p| p.actions.include?(:all)}
@@ -209,16 +210,16 @@ module Authorization
       #     filter_access_to :all
       #     ...
       #   end
-      #
+      # 
       # The default is to allow access unconditionally if no rule matches.
       # Thus, including the +filter_access_to+ :+all+ statement is a good
       # idea, implementing a default-deny policy.
-      #
+      #   
       # When the access is denied, the method +permission_denied+ is called
       # on the current controller, if defined.  Else, a simple "you are not
       # allowed" string is output.  Log.info is given more information on the
       # reasons of denial.
-      #
+      # 
       #   def permission_denied
       #     flash[:error] = 'Sorry, you are not allowed to the requested page.'
       #     respond_to do |format|
@@ -227,7 +228,7 @@ module Authorization
       #       format.js   { head :unauthorized }
       #     end
       #   end
-      #
+      # 
       # By default, required privileges are inferred from the action name and
       # the controller name.  Thus, in UserController :+edit+ requires
       # :+edit+ +users+.  To specify required privilege, use the option :+require+
@@ -251,10 +252,10 @@ module Authorization
       #   end
       # NOTE: +before_filters+ need to be defined before the first
       # +filter_access_to+ call.
-      #
+      #   
       # For further customization, a custom filter expression may be formulated
       # in a block, which is then evaluated in the context of the controller
-      # on a matching request.  That is, for checking two objects, use the
+      # on a matching request.  That is, for checking two objects, use the 
       # following:
       #   filter_access_to :merge do
       #     permitted_to!(:update, User.find(params[:original_id])) and
@@ -262,14 +263,14 @@ module Authorization
       #   end
       # The block should raise a Authorization::AuthorizationError or return
       # false if the access is to be denied.
-      #
+      # 
       # Later calls to filter_access_to with overlapping actions overwrite
       # previous ones for that action.
-      #
+      # 
       # All options:
-      # [:+require+]
+      # [:+require+] 
       #   Privilege required; defaults to action_name
-      # [:+context+]
+      # [:+context+] 
       #   The privilege's context, defaults to decl_auth_context, which consists
       #   of controller_name, prepended by any namespaces
       # [:+attribute_check+]
@@ -282,54 +283,19 @@ module Authorization
       #   * a find on the context model, using +params+[:id] as id value.
       #   Any of these methods will only be employed if :+attribute_check+
       #   is enabled.
-      # [:+model+]
+      # [:+model+] 
       #   The data model to load a context object from.  Defaults to the
       #   context, singularized.
       # [:+load_method+]
-      #   Specify a method by symbol or a Proc object which should be used
+      #   Specify a method by symbol or a Proc object which should be used 
       #   to load the object.  Both should return the loaded object.
       #   If a Proc object is given, e.g. by way of
-      #   +lambda+, it is called in the instance of the controller.
+      #   +lambda+, it is called in the instance of the controller.  
       #   Example demonstrating the default behavior:
       #     filter_access_to :show, :attribute_check => true,
       #                      :load_method => lambda { User.find(params[:id]) }
-      #
-
-      def filter_access_filter # :nodoc:
-        permissions = self.class.all_filter_access_permissions
-        all_permissions = permissions.select {|p| p.actions.include?(:all)}
-        matching_permissions = permissions.select {|p| p.matches?(action_name)}
-        allowed = false
-        auth_exception = nil
-        begin
-          allowed = if !matching_permissions.empty?
-                      matching_permissions.all? {|perm| perm.permit!(self)}
-                    elsif !all_permissions.empty?
-                      all_permissions.all? {|perm| perm.permit!(self)}
-                    else
-                      !DEFAULT_DENY
-                    end
-        rescue NotAuthorized => e
-          auth_exception = e
-        end
-
-        unless allowed
-          if all_permissions.empty? and matching_permissions.empty?
-            logger.warn "Permission denied: No matching filter access " +
-              "rule found for #{self.class.controller_name}.#{action_name}"
-          elsif auth_exception
-            logger.info "Permission denied: #{auth_exception}"
-          end
-          if respond_to?(:permission_denied, true)
-            # permission_denied needs to render or redirect
-            send(:permission_denied)
-          else
-            send(:render, :text => "You are not allowed to access this action.",
-              :status => :forbidden)
-          end
-        end
-      end
-
+      # 
+      
       def filter_access_to (*args, &filter_block)
         options = args.last.is_a?(Hash) ? args.pop : {}
         options = {
@@ -345,13 +311,13 @@ module Authorization
         actions = args.flatten
 
         # prevent setting filter_access_filter multiple times
-        skip_before_action :filter_access_filter, raise: false
-        before_action :filter_access_filter
-
+        skip_before_filter :filter_access_filter
+        before_filter :filter_access_filter
+        
         filter_access_permissions.each do |perm|
           perm.remove_actions(actions)
         end
-        filter_access_permissions <<
+        filter_access_permissions << 
           ControllerPermission.new(actions, privilege, context,
                                    options[:strong_parameters],
                                    options[:attribute_check],
@@ -359,15 +325,15 @@ module Authorization
                                    options[:load_method],
                                    filter_block)
       end
-
+      
       # Collecting all the ControllerPermission objects from the controller
-      # hierarchy.  Permissions for actions are overwritten by calls to
+      # hierarchy.  Permissions for actions are overwritten by calls to 
       # filter_access_to in child controllers with the same action.
       def all_filter_access_permissions # :nodoc:
         ancestors.inject([]) do |perms, mod|
           if mod.respond_to?(:filter_access_permissions, true)
-            perms +
-              mod.filter_access_permissions.collect do |p1|
+            perms + 
+              mod.filter_access_permissions.collect do |p1| 
                 p1.clone.remove_actions(perms.inject(Set.new) {|actions, p2| actions + p2.actions})
               end
           else
@@ -427,12 +393,12 @@ module Authorization
       #    filter_resource_access :additional_member => { :toggle_open => :update }
       # Would add a member action :+toggle_open+ to the default members, such as :+show+.
       #
-      # If :+collection+ is an array of method names filter_resource_access will
-      # associate a permission with the method that is the same as the method
-      # name and no attribute checks will be performed unless
+      # If :+collection+ is an array of method names filter_resource_access will 
+      # associate a permission with the method that is the same as the method 
+      # name and no attribute checks will be performed unless 
       #   :attribute_check => true
       # is added in the options.
-      #
+      # 
       # You can override the default object loading by implementing any of the
       # following instance methods on the controller.  Examples are given for the
       # BranchController (with +nested_in+ set to :+companies+):
@@ -443,7 +409,7 @@ module Authorization
       # [+load_branch+]
       #   Used for +member+ actions.
       # [+load_company+]
-      #   Used for all +new+, +member+, and +collection+ actions if the
+      #   Used for all +new+, +member+, and +collection+ actions if the 
       #   +nested_in+ option is set.
       #
       # All options:
@@ -589,7 +555,7 @@ module Authorization
               controller.send(:new_blank_controller_object,
                   options[:context] || controller_name, options[:nested_in], options[:strong_parameters], options[:model])
             end
-          end
+          end          
         end
 
         load_method = :"load_#{controller_name.singularize}"
@@ -629,7 +595,8 @@ module Authorization
         prefixes = name.split('::')[0..-2].map(&:underscore)
         ((prefixes + [controller_name]) * '_').to_sym
       end
-
+      
+      protected
       def filter_access_permissions # :nodoc:
         unless filter_access_permissions?
           ancestors[1..-1].reverse.each do |mod|
@@ -639,7 +606,7 @@ module Authorization
         class_variable_set(:@@declarative_authorization_permissions, {}) unless filter_access_permissions?
         class_variable_get(:@@declarative_authorization_permissions)[self.name] ||= []
       end
-
+      
       def filter_access_permissions? # :nodoc:
         class_variable_defined?(:@@declarative_authorization_permissions)
       end
@@ -665,7 +632,7 @@ module Authorization
       end
     end
   end
-
+  
   class ControllerPermission # :nodoc:
     attr_reader :actions, :privilege, :context, :attribute_check, :strong_params
     def initialize (actions, privilege, context, strong_params, attribute_check = false,
@@ -680,11 +647,11 @@ module Authorization
       @attribute_check = attribute_check
       @strong_params = strong_params
     end
-
+    
     def matches? (action_name)
       @actions.include?(action_name.to_sym)
     end
-
+    
     def permit! (contr)
       if @filter_block
         return contr.instance_eval(&@filter_block)
@@ -692,18 +659,18 @@ module Authorization
       object = @attribute_check ? load_object(contr) : nil
       privilege = @privilege || :"#{contr.action_name}"
 
-      contr.authorization_engine.permit!(privilege,
+      contr.authorization_engine.permit!(privilege, 
                                          :user => contr.send(:current_user),
                                          :object => object,
                                          :skip_attribute_test => !@attribute_check,
                                          :context => @context || contr.class.decl_auth_context)
     end
-
+    
     def remove_actions (actions)
       @actions -= actions
       self
     end
-
+    
     private
 
     def load_object(contr)
@@ -734,3 +701,4 @@ module Authorization
     end
   end
 end
+
